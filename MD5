@@ -1,0 +1,17 @@
+c659531f348ed45dcc8f3e7951f6bd3e *DESCRIPTION
+f80fc092fd4683c5bc7979ef58fa83f4 *NAMESPACE
+f8509eaf110b2abb96ea250a29a2ddfb *R/RcppExports.R
+1048849dbb103afa23729d668a5eb440 *R/SMMA.R
+02db1a316f4c1fb4611e1d3a1512d04c *R/SMMA_RH.R
+bfb41fc9049b5c23a62b3cda03424ce9 *R/SMMA_internal.R
+e65961a786549c26c0c3f0c53e1206eb *R/SMMA_predict.R
+d991e24a7f894a8b3fe7b85a76176903 *R/SMMA_print.R
+25bffd63bdd9686fe87ed981742a2d70 *man/RH.Rd
+1b5cab76e49d13408220cbc650d665eb *man/SMMA.Rd
+3daccd40209491fcb63bc03ea9be1da8 *man/predict.SMMA.Rd
+41fa6cf18e0b64a0c4eafba833d7a423 *man/print.SMMA.Rd
+42e586f0019186ebe2aee80aa7600214 *src/Makevars
+c7ecf2e25ce9867984fd99fe00332792 *src/RcppExports.cpp
+f0b46324e26cce2cbf3d358c57b887c1 *src/auxfunc.h
+ea003dc398be955c8d6d278fca9e34e1 *src/init.c
+e8d66322b147387425e1c26065fb54ec *src/rcppfunc.cpp
