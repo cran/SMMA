@@ -8,7 +8,7 @@ using namespace Rcpp;
 
 // pga
 Rcpp::List pga(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, Rcpp::NumericVector resp, std::string penalty, double zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, double Delta0, double nu, int alg, int ll);
-RcppExport SEXP SMMA_pga(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP Delta0SEXP, SEXP nuSEXP, SEXP algSEXP, SEXP llSEXP) {
+RcppExport SEXP _SMMA_pga(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP Delta0SEXP, SEXP nuSEXP, SEXP algSEXP, SEXP llSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;

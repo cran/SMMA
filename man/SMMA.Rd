@@ -2,12 +2,12 @@
 % Please edit documentation in R/SMMA.R
 \name{SMMA}
 \alias{SMMA}
-\alias{pga}
 \alias{softmaximin}
-\title{Maximin Estimation for Large Scale Array Data with Known Groups}
+\alias{pga}
+\title{Soft Maximin Estimation for Large Scale Array Data with Known Groups}
 \usage{
-softmaximin(X, 
-            Y, 
+softmaximin(X,
+            Y,
             penalty = c("lasso", "scad"),
             nlambda = 30,
             lambda.min.ratio = 1e-04,
@@ -17,7 +17,7 @@ softmaximin(X,
             maxiter = 15000,
             steps = 1,
             btmax = 100,
-            zeta = 2, 
+            zeta = 2,
             c = 0.001,
             Delta0 = 1,
             nu = 1,
@@ -25,22 +25,22 @@ softmaximin(X,
             log = TRUE)
 }
 \arguments{
-\item{X}{A list containing the Kronecker components (2 or 3) of the Kronecker design matrix.
+\item{X}{A list containing the Kronecker components (1,2 or 3) of the Kronecker design matrix.
 These are  matrices of sizes \eqn{n_i \times p_i}.}
 
 \item{Y}{The response values, an array of size \eqn{n_1 \times\cdots\times n_d \times G}.}
 
-\item{penalty}{A string specifying the penalty. Possible values 
+\item{penalty}{A string specifying the penalty. Possible values
 are \code{"lasso", "scad"}.}
 
 \item{nlambda}{The number of \code{lambda} values.}
 
-\item{lambda.min.ratio}{The smallest value for \code{lambda}, given as a fraction of 
+\item{lambda.min.ratio}{The smallest value for \code{lambda}, given as a fraction of
 \eqn{\lambda_{max}}; the (data dependent) smallest value for which all coefficients are zero.}
 
 \item{lambda}{The sequence of penalty parameters for the regularization path.}
 
-\item{penalty.factor}{An array of size \eqn{p_1 \times \cdots \times p_d}. Is multiplied 
+\item{penalty.factor}{An array of size \eqn{p_1 \times \cdots \times p_d}. Is multiplied
 with each element in \code{lambda} to allow differential shrinkage on the coefficients.}
 
 \item{reltol}{The convergence tolerance for the inner loop.}
@@ -48,7 +48,7 @@ with each element in \code{lambda} to allow differential shrinkage on the coeffi
 \item{maxiter}{The maximum number of  iterations allowed for each \code{lambda}
 value, when  summing over all outer iterations for said \code{lambda}.}
 
-\item{steps}{The number of steps used in the multi-step adaptive lasso algorithm for non-convex penalties. 
+\item{steps}{The number of steps used in the multi-step adaptive lasso algorithm for non-convex penalties.
 Automatically set to 1 when \code{penalty = "lasso"}.}
 
 \item{btmax}{Maximum number of backtracking steps allowed in each iteration. Default is \code{btmax = 100}.}
@@ -66,65 +66,62 @@ Automatically set to 1 when \code{penalty = "lasso"}.}
 \item{log}{logical variable indicating wheter to use log-loss to or not.  TRUE is default and yields the problem described below.}
 }
 \value{
-An object with S3 Class "SMMA". 
-\item{spec}{A string indicating the array dimension (2 or 3) and the penalty.}  
-\item{coef}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of 
+An object with S3 Class "SMMA".
+\item{spec}{A string indicating the array dimension (1, 2 or 3) and the penalty.}
+\item{coef}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of
 the model coefficients (\code{beta}) for each \code{lambda}-value.}
 \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
 \item{Obj}{A matrix containing the objective values for each iteration and each model.}
-\item{df}{The number of nonzero coefficients for each value of \code{lambda}.}	
+\item{df}{The number of nonzero coefficients for each value of \code{lambda}.}
 \item{dimcoef}{A vector giving the dimension of the model coefficient array \eqn{\beta}.}
 \item{dimobs}{A vector giving the dimension of the observation (response) array \code{Y}.}
-\item{Iter}{A list with 4 items:  
+\item{Iter}{A list with 4 items:
 \code{bt_iter}  is total number of backtracking steps performed,
 \code{bt_enter} is the number of times the backtracking is initiated,
-and \code{iter_mat} is a vector containing the  number of  iterations for each \code{lambda} value 
+and \code{iter_mat} is a vector containing the  number of  iterations for each \code{lambda} value
 and  \code{iter} is total number of iterations i.e. \code{sum(Iter)}.}
 }
 \description{
-Efficient design matrix free procedure for solving a soft maximin problem for  
-large scale array-tensor structured models, see  \cite{Lund et al., 2017}. 
+Efficient design matrix free procedure for solving a soft maximin problem for
+large scale array-tensor structured models, see  \cite{Lund et al., 2017}.
 Currently Lasso and SCAD penalized estimation is implemented.
 }
 \details{
-We consider the mixed model setup from \cite{Meinshausen and B{u}hlmann, 2015} for array data with a known fixed group structure 
-and tensor structured design matrix. 
-
-For  \eqn{g \in \{1,\ldots,G\}} let \eqn{n} be the number of observations in each group. 
-With  \eqn{Y_g:=(y_{i},\ldots,y_{i_{n}})^\top}  the   group-specific \eqn{n_1\times \cdots \times n_d} response array  
-and \eqn{X :=(x_{i}\mid\ldots\mid x_{i_{n}})^\top} a \eqn{n\times p} design matrix, with tensor structure
- \deqn{X = \bigotimes_{i=1}^d X_i,} 
- where for \eqn{d =2,3}, \eqn{X_1,\ldots, X_d} are the marginal \eqn{n_i\times p_i} design matrices (Kronecker components). 
- 
-We use the array model framework, see  \cite{Currie et al., 2006}, to write the model equation as
+In \cite{Lund et al., 2017}  the following mixed model setup for \eqn{d}-dimensional array data, \eqn{d=1,2,3},   with  known fixed group structure
+and tensor structured design matrix is considered: With \eqn{G} groups,  \eqn{g \in \{1,\ldots,G\}}, \eqn{n} is the number of observations in each group,
+  \eqn{Y_g:=(y_{i},\ldots,y_{i_{n}})^\top}  the   group-specific \eqn{n_1\times \cdots \times n_d} response array
+and \eqn{X}
+a \eqn{n\times p} design matrix, with tensor structure
+ \deqn{X = \bigotimes_{i=1}^d X_i,}
+ where for \eqn{d =1,2,3}, \eqn{X_1,\ldots, X_d} are the marginal \eqn{n_i\times p_i} design matrices (Kronecker components).
+Using the GLAM framework  the model equation is
  \deqn{Y_g = \rho(X_d,\rho(X_{d-1},\ldots,\rho(X_1,B_g))) + E,}
-where \eqn{\rho} is the so called rotated \eqn{H}-transfrom, \eqn{B_g} for each \eqn{g} is a random \eqn{p_1\times\cdots\times p_d} parameter array
- and \eqn{E}  is  \eqn{n_1\times \cdots \times n_d} error array uncorrelated with \eqn{X}.
- 
-In \cite{Meinshausen and B{u}hlmann, 2015} it is suggested to maximize the minimal  empirical explained variance 
+where \eqn{\rho} is the so called rotated \eqn{H}-transfrom (see  \cite{Currie et al., 2006}), \eqn{B_g} for each \eqn{g} is a random \eqn{p_1\times\cdots\times p_d} parameter array
+ and \eqn{E}  is  \eqn{n_1\times \cdots \times n_d} error array uncorrelated with \eqn{X}. Note that for \eqn{d=1} the model is a GLM.
+
+In \cite{Lund et al., 2017} a penalized soft maximin problem, given as
+\deqn{\min_{\beta}\log\bigg(\sum_{g=1}^G \exp(-\zeta \hat V_g(\beta))\bigg) + \lambda J (\beta),}
+ is proposed where \eqn{J} is a proper and convex penalty, \eqn{\zeta > 0} and
 \deqn{\hat V_g(\beta):=\frac{1}{n}(2\beta^\top X^\top y_g-\beta^\top X^\top X\beta),}
-where \eqn{y_g:=vec(Y_g)}. In \cite{Lund et al., 2017} a soft version of this problem, 
-the soft maximin problem, given as
-\deqn{\min_{\beta}\log\bigg(\sum_{g=1}^G \exp(-\zeta \hat V_g(\beta))\bigg) + \lambda J (\beta),} 
- is suggested, for \eqn{J} a proper and convex function and \eqn{\zeta > 0}. 
- 
- For \eqn{d=2,3} and using only the marginal matrices \eqn{X_1,X_2,\ldots}, the function \code{softmaximin} 
-solves the soft maximin problem for a sequence of penalty parameters \eqn{\lambda_{max}>\ldots >\lambda_{min}>0}. The underlying algorithm is based on a non-monotone  
+\eqn{y_g:=vec(Y_g)}, is the minimal  empirical explained variance from \cite{Meinshausen and B{u}hlmann, 2015}.
+
+ For \eqn{d=1,2,3}, using only the marginal matrices \eqn{X_1,X_2,\ldots} (for \eqn{d=1} there is only one marginal), the function \code{softmaximin}
+solves the soft maximin problem for a sequence of penalty parameters \eqn{\lambda_{max}>\ldots >\lambda_{min}>0}. The underlying algorithm is based on a non-monotone
 proximal gradient method. We note that if \eqn{J} is not  convex, as with the SCAD penalty,
 we use the multiple step adaptive lasso procedure to loop over the proximal algorithm, see \cite{Lund et al., 2017} for more details.
 }
 \examples{
 
-##size of example 
+##size of example
 n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 
 ##marginal design matrices (Kronecker components)
-X1 <- matrix(rnorm(n1 * p1), n1, p1) 
-X2 <- matrix(rnorm(n2 * p2), n2, p2) 
-X3 <- matrix(rnorm(n3 * p3), n3, p3) 
+X1 <- matrix(rnorm(n1 * p1), n1, p1)
+X2 <- matrix(rnorm(n2 * p2), n2, p2)
+X3 <- matrix(rnorm(n3 * p3), n3, p3)
 X <- list(X1, X2, X3)
 
-component <- rbinom(p1 * p2 * p3, 1, 0.1) 
+component <- rbinom(p1 * p2 * p3, 1, 0.1)
 Beta1 <- array(rnorm(p1 * p2 * p3, 0, 0.1) + component, c(p1 , p2, p3))
 mu1 <- RH(X3, RH(X2, RH(X1, Beta1)))
 Y1 <- array(rnorm(n1 * n2 * n3), dim = c(n1, n2, n3)) + mu1
@@ -154,14 +151,9 @@ plot(c(component), type="l", ylim = c(m, M))
 lines(Betafit[ , modelno], col = "red")
 
 }
-\author{
-Adam Lund
-
-Maintainer: Adam Lund, \email{adam.lund@math.ku.dk}
-}
 \references{
 Lund, A., S. W. Mogensen and N. R. Hansen  (2017). Estimating Soft Maximin Effects in Heterogeneous Large-scale Array Data.
-\emph{Preprint}. 
+\emph{Preprint}.
 
 Meinshausen, N and P. B{u}hlmann (2015). Maximin effects in inhomogeneous large-scale data.
 \emph{The Annals of Statistics}. 43, 4, 1801-1830.
@@ -170,5 +162,9 @@ Currie, I. D., M. Durban, and P. H. C. Eilers (2006). Generalized linear
 array models with applications to multidimensional
 smoothing. \emph{Journal of the Royal Statistical Society. Series B}. 68, 259-280.
 }
-\keyword{package}
+\author{
+Adam Lund
 
+Maintainer: Adam Lund, \email{adam.lund@math.ku.dk}
+}
+\keyword{package}

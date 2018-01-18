@@ -45,4 +45,3 @@ fit
 \author{
 Adam Lund
 }
-

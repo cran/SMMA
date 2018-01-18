@@ -17,31 +17,30 @@ where \eqn{n'_{i}} is the number of new data points in  the \eqn{i}th dimension.
 \item{...}{ignored}
 }
 \value{
-A list of length \code{nlambda} containing the linear predictors for each  model. If 
-new covariate data is supplied in one \eqn{n' \times p} matrix \code{x} each 
-item  is a vector of length \eqn{n'}. If the data is supplied as a list of 
-matrices each of size \eqn{n'_{i} \times p_i},  each item is an array of size \eqn{n'_1 \times \cdots \times n'_d}, with \eqn{d\in \{2,3\}}.
+A list of length \code{nlambda} containing the linear predictors for each  model. If
+new covariate data is supplied in one \eqn{n' \times p} matrix \code{x} each
+item  is a vector of length \eqn{n'}. If the data is supplied as a list of
+matrices each of size \eqn{n'_{i} \times p_i},  each item is an array of size \eqn{n'_1 \times \cdots \times n'_d}, with \eqn{d\in \{1,2,3\}}.
 }
 \description{
-Given new covariate data this function computes the linear predictors 
-based on the estimated model coefficients in an object produced by the function \code{softmaximin}. Note that the 
-data can be supplied in two different formats: i) as a \eqn{n' \times p} matrix (\eqn{p} is the number of model 
-coefficients and \eqn{n'} is the number of new data points) or ii) as a list of two or three matrices each of 
+Given new covariate data this function computes the linear predictors
+based on the estimated model coefficients in an object produced by the function \code{softmaximin}. Note that the
+data can be supplied in two different formats: i) as a \eqn{n' \times p} matrix (\eqn{p} is the number of model
+coefficients and \eqn{n'} is the number of new data points) or ii) as a list of two or three matrices each of
 size \eqn{n_i' \times p_i, i = 1, 2, 3} (\eqn{n_i'} is the number of new marginal data points in the \eqn{i}th dimension).
 }
 \examples{
- 
 
-##size of example 
+##size of example
 n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 
 ##marginal design matrices (Kronecker components)
-X1 <- matrix(rnorm(n1 * p1, 0, 0.5), n1, p1) 
-X2 <- matrix(rnorm(n2 * p2, 0, 0.5), n2, p2) 
-X3 <- matrix(rnorm(n3 * p3, 0, 0.5), n3, p3) 
+X1 <- matrix(rnorm(n1 * p1, 0, 0.5), n1, p1)
+X2 <- matrix(rnorm(n2 * p2, 0, 0.5), n2, p2)
+X3 <- matrix(rnorm(n3 * p3, 0, 0.5), n3, p3)
 X <- list(X1, X2, X3)
 
-component <- rbinom(p1 * p2 * p3, 1, 0.1) 
+component <- rbinom(p1 * p2 * p3, 1, 0.1)
 Beta1 <- array(rnorm(p1 * p2 * p3, 0, .1) + component, c(p1 , p2, p3))
 Beta2 <- array(rnorm(p1 * p2 * p3, 0, .1) + component, c(p1 , p2, p3))
 mu1 <- RH(X3, RH(X2, RH(X1, Beta1)))
@@ -69,4 +68,3 @@ predict(fit, X = list(X1, X2, X3))[[15]]
 \author{
 Adam Lund
 }
-

@@ -2,6 +2,6 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 pga <- function(Phi1, Phi2, Phi3, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, Delta0, nu, alg, ll) {
-    .Call('SMMA_pga', PACKAGE = 'SMMA', Phi1, Phi2, Phi3, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, Delta0, nu, alg, ll)
+    .Call(`_SMMA_pga`, Phi1, Phi2, Phi3, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, Delta0, nu, alg, ll)
 }
 

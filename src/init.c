@@ -8,10 +8,10 @@
 */
 
 /* .Call calls */
-extern SEXP SMMA_pga(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP _SMMA_pga(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"SMMA_pga", (DL_FUNC) &SMMA_pga, 20},
+    {"_SMMA_pga", (DL_FUNC) &_SMMA_pga, 20},
     {NULL, NULL, 0}
 };
 
