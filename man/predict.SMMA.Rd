@@ -51,7 +51,7 @@ Y2 <- array(rnorm(n1 * n2 * n3, mu2), dim = c(n1, n2, n3))
 Y <- array(NA, c(dim(Y1), 2))
 Y[,,, 1] <- Y1; Y[,,, 2] <- Y2;
 
-fit <- softmaximin(X, Y, penalty = "lasso", alg = "npg")
+fit <- softmaximin(X, Y, zeta = 10, penalty = "lasso", alg = "npg")
 
 ##new data in matrix form
 x <- matrix(rnorm(p1 * p2 * p3), nrow = 1)

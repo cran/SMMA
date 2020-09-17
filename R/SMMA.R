@@ -24,12 +24,14 @@
 #' @title Soft Maximin Estimation for Large Scale Array Data with Known Groups
 #'
 #' @description  Efficient design matrix free procedure for solving a soft maximin problem for
-#' large scale array-tensor structured models, see  \cite{Lund et al., 2017}.
+#' large scale array-tensor structured models, see  \cite{Lund et al., 2020}.
 #' Currently Lasso and SCAD penalized estimation is implemented.
 #'
 #' @usage  softmaximin(X,
 #'             Y,
+#'             zeta,
 #'             penalty = c("lasso", "scad"),
+#'             alg = c("npg", "fista"),
 #'             nlambda = 30,
 #'             lambda.min.ratio = 1e-04,
 #'             lambda = NULL,
@@ -38,60 +40,68 @@
 #'             maxiter = 15000,
 #'             steps = 1,
 #'             btmax = 100,
-#'             zeta = 2,
-#'             c = 0.001,
-#'             Delta0 = 1,
+#'             c = 0.0001,
+#'             tau = 2,
+#'             M = 4,
 #'             nu = 1,
-#'             alg = c("npg", "mfista"),
+#'             Lmin = 0,
 #'             log = TRUE)
 #'
-#' @param X A list containing the Kronecker components (1,2 or 3) of the Kronecker design matrix.
+#' @param X list containing the Kronecker components (1, 2 or 3) of the Kronecker design matrix.
 #'  These are  matrices of sizes \eqn{n_i \times p_i}.
-#' @param Y The response values, an array of size \eqn{n_1 \times\cdots\times n_d \times G}.
-#' @param penalty A string specifying the penalty. Possible values
-#' are \code{"lasso", "scad"}.
-#' @param nlambda The number of \code{lambda} values.
-#' @param lambda.min.ratio The smallest value for \code{lambda}, given as a fraction of
+#' @param Y  array of size \eqn{n_1 \times\cdots\times n_d \times G} containing the response values.
+#' @param zeta strictly positive float controlling  the softmaximin approximation accuracy.
+#' @param penalty string specifying the penalty type. Possible values are \code{"lasso", "scad"}.
+#' @param alg string specifying the optimization algorithm. Possible values are \code{"npg", "fista"}.
+#' @param nlambda positive integer giving the number of \code{lambda} values. Used when lambda is not specified.
+#' @param lambda.min.ratio strictly positive float giving the smallest value for \code{lambda}, as a fraction of
 #' \eqn{\lambda_{max}}; the (data dependent) smallest value for which all coefficients are zero.
-#' @param lambda The sequence of penalty parameters for the regularization path.
-#' @param penalty.factor An array of size \eqn{p_1 \times \cdots \times p_d}. Is multiplied
-#' with each element in \code{lambda} to allow differential shrinkage on the coefficients.
-#' @param reltol The convergence tolerance for the inner loop.
-#' @param maxiter The maximum number of  iterations allowed for each \code{lambda}
+#' Used when lambda is not specified.
+#' @param lambda sequence of strictly positive floats used  as penalty parameters.
+#' @param penalty.factor array of size \eqn{p_1 \times \cdots \times p_d} of positive floats. Is multiplied
+#' with each element in \code{lambda} to allow differential penalization on the coefficients.
+#' @param reltol strictly positive float giving the convergence tolerance for the inner loop.
+#' @param maxiter positive integer giving the maximum number of  iterations allowed for each \code{lambda}
 #' value, when  summing over all outer iterations for said \code{lambda}.
-#' @param steps The number of steps used in the multi-step adaptive lasso algorithm for non-convex penalties.
+#' @param steps strictly positive integer giving the number of steps used in the multi-step adaptive lasso algorithm for non-convex penalties.
 #' Automatically set to 1 when \code{penalty = "lasso"}.
-#' @param btmax Maximum number of backtracking steps allowed in each iteration. Default is \code{btmax = 100}.
-#' @param zeta Constant controlling  the softmax apprximation accuracy. Must be strictly positive. Default is \code{zeta = 2}.
-#' @param c constant used in the NPG algorithm. Must be strictly positive. Default is \code{c = 0.001}.
-#' @param Delta0 constant used to bound the stepsize. Must be strictly positive. Default is \code{Delta0 = 1}.
-#' @param nu constant used to control the stepsize. Must be positive. A small value gives a big stepsize. Default is \code{nu = 1}.
-#' @param alg string indicating which algortihm to use. Possible values are \code{"npg", "mfista"}.
-#' @param log logical variable indicating wheter to use log-loss to or not.  TRUE is default and yields the problem described below.
+#' @param btmax strictly positive integer giving the maximum number of backtracking steps allowed in each iteration. Default is \code{btmax = 100}.
+#' @param c strictly positive float used in the NPG algorithm. Default is \code{c = 0.0001}.
+#' @param tau strictly positive float used to control the stepsize for NPG. Default is \code{tau = 2}.
+#' @param M positive integer giving the look back for the NPG. Default is \code{M = 4}.
+#' @param nu strictly positive float used to control the stepsize. A  value less that 1 will decrease
+#' the stepsize and a value larger than one will increase it. Default is \code{nu = 1}.
+#' @param Lmin non-negative float used by the NPG algorithm to control the stepsize. For the default  \code{Lmin = 0}
+#' the maximum step size is the same as for the FISTA algorithm.
+#' @param log logical variable indicating whether to use log-loss.  TRUE is default and yields the loss below.
+
+#' @details Following \cite{Lund et al., 2020}  this package solves the optimization problem for a linear
+#' model for heterogeneous \eqn{d}-dimensional array data (\eqn{d=1,2,3}) organized in \eqn{G} known groups,
+#' and with identical tensor structured design matrix \eqn{X} across all groups.  Specifically \eqn{n = \prod_i^d n_i} is the
+#' number of observations in each group, \eqn{Y_g}  the  \eqn{n_1\times \cdots \times n_d} response array
+#' for group \eqn{g \in \{1,\ldots,G\}}, and \eqn{X}  a \eqn{n\times p} design matrix, with tensor structure
+#'  \deqn{X = \bigotimes_{i=1}^d X_i.}
+#' For \eqn{d =1,2,3}, \eqn{X_1,\ldots, X_d} are the marginal \eqn{n_i\times p_i} design matrices (Kronecker components).
+#' Using the GLAM framework  the model equation for group \eqn{g\in \{1,\ldots,G\}} is expressed as
+#'  \deqn{Y_g = \rho(X_d,\rho(X_{d-1},\ldots,\rho(X_1,B_g))) + E_g,}
+#' where \eqn{\rho} is the so called rotated \eqn{H}-transfrom (see  \cite{Currie et al., 2006}),
+#' \eqn{B_g} for each \eqn{g} is a (random) \eqn{p_1\times\cdots\times p_d} parameter array
+#'  and \eqn{E_g}  is  a \eqn{n_1\times \cdots \times n_d} error array.
 #'
-#' @details In \cite{Lund et al., 2017}  the following mixed model setup for \eqn{d}-dimensional array data, \eqn{d=1,2,3},   with  known fixed group structure
-#' and tensor structured design matrix is considered: With \eqn{G} groups,  \eqn{g \in \{1,\ldots,G\}}, \eqn{n} is the number of observations in each group,
-#'   \eqn{Y_g:=(y_{i},\ldots,y_{i_{n}})^\top}  the   group-specific \eqn{n_1\times \cdots \times n_d} response array
-#' and \eqn{X}
-#\eqn{X :=(x_{i}\mid\ldots\mid x_{i_{n}})^\top}
-#' a \eqn{n\times p} design matrix, with tensor structure
-#'  \deqn{X = \bigotimes_{i=1}^d X_i,}
-#'  where for \eqn{d =1,2,3}, \eqn{X_1,\ldots, X_d} are the marginal \eqn{n_i\times p_i} design matrices (Kronecker components).
-#' Using the GLAM framework  the model equation is
-#'  \deqn{Y_g = \rho(X_d,\rho(X_{d-1},\ldots,\rho(X_1,B_g))) + E,}
-#' where \eqn{\rho} is the so called rotated \eqn{H}-transfrom (see  \cite{Currie et al., 2006}), \eqn{B_g} for each \eqn{g} is a random \eqn{p_1\times\cdots\times p_d} parameter array
-#'  and \eqn{E}  is  \eqn{n_1\times \cdots \times n_d} error array uncorrelated with \eqn{X}. Note that for \eqn{d=1} the model is a GLM.
-#'
-#' In \cite{Lund et al., 2017} a penalized soft maximin problem, given as
-#' \deqn{\min_{\beta}\log\bigg(\sum_{g=1}^G \exp(-\zeta \hat V_g(\beta))\bigg) + \lambda J (\beta),}
-#'  is proposed where \eqn{J} is a proper and convex penalty, \eqn{\zeta > 0} and
-#' \deqn{\hat V_g(\beta):=\frac{1}{n}(2\beta^\top X^\top y_g-\beta^\top X^\top X\beta),}
-#' \eqn{y_g:=vec(Y_g)}, is the minimal  empirical explained variance from \cite{Meinshausen and B{u}hlmann, 2015}.
+#' This package solves the penalized soft maximin problem from \cite{Lund et al., 2020}, given by
+#' \deqn{\min_{\beta}\frac{1}{\zeta}\log\bigg(\sum_{g=1}^G \exp(-\zeta \hat V_g(\beta))\bigg) + \lambda  \Vert\beta\Vert_1, \quad \zeta > 0,\lambda \geq 0}
+#'  for the setup described above. Note that
+#' \deqn{\hat V_g(\beta):=\frac{1}{n}(2\beta^\top X^\top vec(Y_g)-\beta^\top X^\top X\beta),}
+#'  is the empirical explained variance from \cite{Meinshausen and B{u}hlmann, 2015}.  See \cite{Lund et al., 2020} for more details and references.
 #'
 #'  For \eqn{d=1,2,3}, using only the marginal matrices \eqn{X_1,X_2,\ldots} (for \eqn{d=1} there is only one marginal), the function \code{softmaximin}
-#' solves the soft maximin problem for a sequence of penalty parameters \eqn{\lambda_{max}>\ldots >\lambda_{min}>0}. The underlying algorithm is based on a non-monotone
-#' proximal gradient method. We note that if \eqn{J} is not  convex, as with the SCAD penalty,
-#' we use the multiple step adaptive lasso procedure to loop over the proximal algorithm, see \cite{Lund et al., 2017} for more details.
+#' solves the soft maximin problem for a sequence of penalty parameters \eqn{\lambda_{max}>\ldots >\lambda_{min}>0}.
+#'
+#' Two optimization algorithms  are implemented, a non-monotone
+#' proximal gradient (NPG) algorithm and a fast iterative soft thresholding algorithm (FISTA).
+#' We note that this package also solves the problem above with the penalty given by the SCAD
+#'  penalty, using the multiple step adaptive lasso procedure to loop over the proximal algorithm.
+#'
 #'
 #' @return An object with S3 Class "SMMA".
 #' \item{spec}{A string indicating the array dimension (1, 2 or 3) and the penalty.}
@@ -113,15 +123,16 @@
 #' Maintainer: Adam Lund, \email{adam.lund@@math.ku.dk}
 #'
 #' @references
-#' Lund, A., S. W. Mogensen and N. R. Hansen  (2017). Estimating Soft Maximin Effects in Heterogeneous Large-scale Array Data.
+#' Lund, A., S. W. Mogensen and N. R. Hansen (2020). Soft Maximin Estimation for Heterogeneous Array Data.
 #' \emph{Preprint}.
 #'
 #' Meinshausen, N and P. B{u}hlmann (2015). Maximin effects in inhomogeneous large-scale data.
-#' \emph{The Annals of Statistics}. 43, 4, 1801-1830.
+#' \emph{The Annals of Statistics}. 43, 4, 1801-1830. url = {https://doi.org/10.1214/15-AOS1325}.
 #'
 #' Currie, I. D., M. Durban, and P. H. C. Eilers (2006). Generalized linear
-#' array models with applications to multidimensional
-#' smoothing. \emph{Journal of the Royal Statistical Society. Series B}. 68, 259-280.
+#' array models with applications to multidimensional smoothing.
+#' \emph{Journal of the Royal Statistical Society. Series B}. 68, 259-280. url = {http://dx.doi.org/10.1111/j.1467-9868.2006.00543.x}.
+#'
 #'
 #' @keywords package
 #'
@@ -156,7 +167,7 @@
 #' Y <- array(NA, c(dim(Y1), 5))
 #' Y[,,, 1] <- Y1; Y[,,, 2] <- Y2; Y[,,, 3] <- Y3; Y[,,, 4] <- Y4; Y[,,, 5] <- Y5;
 #'
-#' fit <- softmaximin(X, Y, penalty = "lasso", alg = "npg")
+#' fit <- softmaximin(X, Y, zeta = 10, penalty = "lasso", alg = "npg")
 #' Betafit <- fit$coef
 #'
 #' modelno <- 15
@@ -171,7 +182,9 @@
 #' @importFrom Rcpp evalCpp
 softmaximin <-function(X,
                Y,
+               zeta,
                penalty = c("lasso", "scad"),
+               alg = c("npg", "fista"),
                nlambda = 30,
                lambda.min.ratio = 1e-04,
                lambda = NULL,
@@ -180,17 +193,15 @@ softmaximin <-function(X,
                maxiter = 15000,
                steps = 1,
                btmax = 100,
-               zeta = 2,
-               c = 0.001,
-               Delta0 = 1,
+               c = 0.0001,
+               tau = 2,
+               M = 4,
                nu = 1,
-               alg = c("npg", "mfista"),
+               Lmin = 0,
                log = TRUE) {
 
-##get dimensions of problem
 dimglam <- length(X)
 
-#if (dimglam < 2 || dimglam > 3){
 if (dimglam > 3){
 
 stop(paste("the dimension of the model must be 1, 2 or 3!"))
@@ -217,8 +228,7 @@ p3 <- dimX[3, 2]
 n <- prod(dimX[,1])
 p <- prod(dimX[,2])
 G <- dim(Y)[length(dim(Y))]
-#print(G)
-####reshape Y_g into matrix
+
 Z <- array(NA, c(n1, n2 * n3, G))
 
 if(dimglam == 1){
@@ -233,62 +243,33 @@ if(dimglam == 1){
 for(i in 1:G){Z[, , i] <- matrix(Y[, , , i], n1, n2 * n3)}
 }
 
-#print(Z)
-#print(dim(Z))
-####check on algorithm
-if(sum(alg == c("npg", "mfista")) != 1){stop(paste("algorithm must be correctly specified"))}
+if(sum(alg == c("npg", "fista")) != 1){stop(paste("algorithm must be correctly specified"))}
 
-if(alg == "npg"){npg <- 1}else{npg <- 0}
+if(alg == "npg"){alg <- 1}else{alg <- 0}
 
-####check on loss type
 if(log == TRUE){ll <- 1}else{ll <- 0}
 
-
-####check on constants
 if(c <= 0){stop(paste("c must be strictly positive"))}
 
-if(Delta0 <= 0){stop(paste("Delta0 must be strictly positive"))}
+if(Lmin < 0){stop(paste("Lmin must be positive"))}
 
 if(zeta <= 0){stop(paste("zeta must be strictly positive"))}
 
-####check on penalty
 if(sum(penalty == c("lasso", "scad")) != 1){stop(paste("penalty must be correctly specified"))}
 
 if(penalty == "lasso"){steps <- 1}
 
-# ####check on weights
-# if(is.null(Weights)){
-#
-# Weights <- Z * 0 + 1
-#
-# }else{
-#
-# if(min(Weights) < 0){stop(paste("only positive weights allowed"))}
-#
-# W <- array(NA, c(n1, n2 * n3, G))
-# for(i in 1:G){W[, , i] <- matrix(Weights[, , , i], n1, n2 * n3)}
-#
-# }
-
-####check on lambda
 if(is.null(lambda)){
 
 makelamb <- 1
 lambda <- rep(NA, nlambda)
 
 }else{
-  nlambda<-length(lambda)
-#if(length(lambda) != nlambda){
-# stop(
-# paste("number of elements in lambda (", length(lambda),") is not equal to nlambda (", nlambda,")", sep = "")
-# )
-#}
-
+nlambda<-length(lambda)
 makelamb <- 0
 
 }
 
-####check on penalty.factor
 if(is.null(penalty.factor)){
 
 penalty.factor <- matrix(1, p1, p2 * p3)
@@ -307,49 +288,49 @@ penalty.factor <- matrix(penalty.factor, p1, p2 * p3)
 
 }
 
-##run  algorithm
 res <- pga(X1, X2, X3,
            Z,
            penalty,
-           zeta, #approx accu
-           c, #bactrack  par
+           zeta,
+           c,
            lambda, nlambda, makelamb, lambda.min.ratio,
            penalty.factor,
            reltol,
            maxiter,
            steps,
            btmax,
-           Delta0,
+           M,
+           tau,
            nu,
-           npg,
-           ll)
+           alg,
+           ll,
+           Lmin)
 
-####checks
 if(res$Stops[2] == 1){
 
-warning(paste("program exit due to maximum number of iterations (",maxiter,") reached for model no ",res$endmodelno,""))
+warning(paste("program exit due to maximum number of inner iterations (",maxiter,") reached for model no ",res$endmodelno + 1,""))
 
 }
 
 if(res$Stop[3] == 1){
 
-warning(paste("program exit due to maximum number of backtraking steps reached for model no ",res$endmodelno,""))
+warning(paste("program exit due to maximum number of backtraking steps reached for model no ",res$endmodelno + 1,""))
 
 }
 
-endmodelno <- res$endmodelno
-Iter <- res$Iter
-
-maxiterpossible <- sum(Iter > 0)
-maxiterreached <- sum(Iter >= (maxiter - 1))
-
-if(maxiterreached > 0){
-
-warning(
-paste("maximum number of inner iterations (",maxiter,") reached ",maxiterreached," time(s) out of ",maxiterpossible," possible")
-)
-
-}
+endmodelno <- res$endmodelno #converged models since c++ is zero indexed
+# Iter <- res$Iter
+#
+# maxiterpossible <- sum(Iter > 0)
+# maxiterreached <- sum(Iter >= (maxiter - 1))
+#
+# if(maxiterreached > 0){
+#
+# warning(
+# paste("maximum number of inner iterations (",maxiter,") reached ",maxiterreached," time(s) out of ",maxiterpossible," possible")
+# )
+#
+#}
 
 out <- list()
 
@@ -362,6 +343,13 @@ out$df <- res$df[1:endmodelno]
 out$dimcoef <- c(p1, p2, p3)[1:dimglam]
 out$dimobs <- c(n1, n2, n3)[1:dimglam]
 out$Obj <- res$Obj
+out$endno <- res$endmodelno
+out$L <- res$L
+out$L1 <- res$L1
+out$sumsqdiff <- res$Sumsqdiff##remove
+out$Delta <- res$Delta##remove
+out$deltamax <- res$deltamax
+out$BT <- res$BT
 
 Iter <- list()
 Iter$bt_enter <- res$btenter
@@ -374,3 +362,4 @@ out$Iter <- Iter
 return(out)
 
 }
+

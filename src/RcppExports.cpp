@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // pga
-Rcpp::List pga(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, Rcpp::NumericVector resp, std::string penalty, double zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, double Delta0, double nu, int alg, int ll);
-RcppExport SEXP _SMMA_pga(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP Delta0SEXP, SEXP nuSEXP, SEXP algSEXP, SEXP llSEXP) {
+Rcpp::List pga(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, Rcpp::NumericVector resp, std::string penalty, double zeta, double c, arma::vec lambda, int nlambda, int makelamb, double lambdaminratio, arma::mat penaltyfactor, double reltol, int maxiter, int steps, int btmax, int mem, double tau, double nu, int alg, int ll, double Lmin);
+RcppExport SEXP _SMMA_pga(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP respSEXP, SEXP penaltySEXP, SEXP zetaSEXP, SEXP cSEXP, SEXP lambdaSEXP, SEXP nlambdaSEXP, SEXP makelambSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP btmaxSEXP, SEXP memSEXP, SEXP tauSEXP, SEXP nuSEXP, SEXP algSEXP, SEXP llSEXP, SEXP LminSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -28,11 +28,23 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type maxiter(maxiterSEXP);
     Rcpp::traits::input_parameter< int >::type steps(stepsSEXP);
     Rcpp::traits::input_parameter< int >::type btmax(btmaxSEXP);
-    Rcpp::traits::input_parameter< double >::type Delta0(Delta0SEXP);
+    Rcpp::traits::input_parameter< int >::type mem(memSEXP);
+    Rcpp::traits::input_parameter< double >::type tau(tauSEXP);
     Rcpp::traits::input_parameter< double >::type nu(nuSEXP);
     Rcpp::traits::input_parameter< int >::type alg(algSEXP);
     Rcpp::traits::input_parameter< int >::type ll(llSEXP);
-    rcpp_result_gen = Rcpp::wrap(pga(Phi1, Phi2, Phi3, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, Delta0, nu, alg, ll));
+    Rcpp::traits::input_parameter< double >::type Lmin(LminSEXP);
+    rcpp_result_gen = Rcpp::wrap(pga(Phi1, Phi2, Phi3, resp, penalty, zeta, c, lambda, nlambda, makelamb, lambdaminratio, penaltyfactor, reltol, maxiter, steps, btmax, mem, tau, nu, alg, ll, Lmin));
     return rcpp_result_gen;
 END_RCPP
+}
+
+static const R_CallMethodDef CallEntries[] = {
+    {"_SMMA_pga", (DL_FUNC) &_SMMA_pga, 22},
+    {NULL, NULL, 0}
+};
+
+RcppExport void R_init_SMMA(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
 }

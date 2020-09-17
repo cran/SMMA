@@ -1,14 +1,12 @@
 //// [[Rcpp::depends(RcppArmadillo)]]
-//#define TIMING
 #include <RcppArmadillo.h>
 #include "auxfunc.h"
-//#include "/Users/adamlund/Documents/KU/Phd/Project/Computer/Vincent/timer/simple_timer.h"
 
 using namespace std;
 using namespace arma;
 
 /////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////algorithm ///////////////////////////////////
+/////////////////////////////////// algorithm ///////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 //[[Rcpp::export]]
 Rcpp::List pga(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3,
@@ -25,64 +23,65 @@ Rcpp::List pga(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3,
                int maxiter,
                int steps,
                int btmax,
-               double Delta0,
+               int mem,
+               double tau,
                double nu,
                int alg,
-               int ll){
-
+               int ll,
+               double Lmin){
 Rcpp::List output;
-Rcpp::NumericVector vecY(resp);//??why thevecY??
+Rcpp::NumericVector vecY(resp);
 Rcpp::IntegerVector YDim = vecY.attr("dim");
-const arma::cube Z(vecY.begin(), YDim[0], YDim[1], YDim[2], false);//whybrackets?????????
+const arma::cube Z(vecY.begin(), YDim[0], YDim[1], YDim[2], false);
 
-//declare some global variables
 int ascent, ascentmax,
     bt, btenter = 0, btiter = 0,
     endmodelno = nlambda,
-    n1 = Phi1.n_rows, n2 = Phi2.n_rows, n3 = Phi3.n_rows, Nog = Z.n_slices, ng = n1 * n2 * n3,// n = Nog * ng,
+    n1 = Phi1.n_rows, n2 = Phi2.n_rows, n3 = Phi3.n_rows, Nog = Z.n_slices, ng = n1 * n2 * n3,
     p1 = Phi1.n_cols, p2 = Phi2.n_cols, p3 = Phi3.n_cols, p = p1 * p2 * p3,
     Stopconv = 0, Stopmaxiter = 0, Stopbt = 0;
 
-double alphamax, ascad = 3.7,
-       delta,
-       eta = 0.9,
-       Lmax, lossBeta, lossBetaprev, lossProp, lossX,
-       penBeta, penProp, penX,
-       Qdelta,
+double  alphamax, ascad = 3.7,
+       delta, deltamax,
+       L, lossBeta, lossProp, lossX,
+       penBeta, penProp,
        relobj,
-       tk, tkp1,
        val;
 
 arma::vec df(nlambda),
           eig1, eig2, eig3,
-          Iter(nlambda), Loss(maxiter + 1), Pen(maxiter + 1),
+          Iter(nlambda),  Pen(maxiter),
           obj(maxiter + 1),
           Stops(3),
           eevX;
 
 arma::mat absBeta(p1, p2 * p3),
-          Beta(p1, p2 * p3), Betaprev(p1, p2 * p3), Betas(p, nlambda), BT(nlambda, maxiter + 1),
-          dpen(p1, p2 * p3),
-          Gamma(p1, p2 * p3), GradlossX(p1, p2 * p3), GradlossX2(p1, p2 * p3),
-          Obj(maxiter + 1, nlambda),
-          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitPhiBeta, PhitPhiX, pospart(p1, p2 * p3), Prop(p1, p2 * p3), PhiBeta(n1, n2 * n3), PhiProp(n1, n2 * n3), PhiX(n1, n2 * n3),
+          Beta(p1, p2 * p3), Betaprev(p1, p2 * p3), Betas(p, nlambda), BT(nlambda, maxiter),
+          Delta(maxiter, nlambda),  dpen(p1, p2 * p3),
+          Gamma(p1, p2 * p3), GradlossX(p1, p2 * p3), GradlossXprev(p1, p2 * p3), GradlossX2(p1, p2 * p3),
+          Obj(maxiter, nlambda),
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitPhiBeta, PhitPhiX, pospart(p1, p2 * p3),
+          Prop(p1, p2 * p3), PhiBeta(n1, n2 * n3), PhiProp(n1, n2 * n3), PhiX(n1, n2 * n3),
           wGamma(p1, p2 * p3),
-          X(p1, p2 * p3);
+          R,
+          S, Sumsqdiff(Nog, Nog),
+          X(p1, p2 * p3), Xprev,
+          Zi;
 
-arma::cube PhitZ(p1, p2 * p3, Nog), W(Nog, maxiter + 1, nlambda);
+arma::cube PhitZ(p1, p2 * p3, Nog);
 
 ////fill variables
 ascentmax = 4;
+double scale = 0.9;
 
 obj.fill(NA_REAL);
-Obj.fill(0);
 Betas.fill(42);
 Iter.fill(0);
-
+GradlossXprev.fill(0);
 BT.fill(-1);
 
-W.fill(42);
-Loss.fill(0);
+Delta.fill(NA_REAL);
+Obj.fill(NA_REAL);
 Pen.fill(0);
 
 ////precompute
@@ -102,10 +101,27 @@ PhitZ.slice(j) = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), Z.slice(j), n2,
 }
 
 ////proximal step size
-Lmax = 2 * alphamax * (1 + Delta0 * zeta) / ng; //upper bound on Lipschitz?!?!?!?!?!?!?!?!?!?!?!?!?
+// Sumsqdiff.fill(0);
+// for(int i = 0; i < Nog; i++){
+// Zi = Z.slice(i);
+// for(int j = i + 1; j < Nog; j++){Sumsqdiff(i,j) = sum_square(Zi - Z.slice(j));}
+// }
 
-//initial step size
-if(nu > 0){delta = 1.9 / (nu * Lmax);}else{delta = Delta0;}
+mat A(Nog, Nog);
+mat PhitZi;
+A.fill(0);
+for(int i = 0; i < Nog; i++){
+PhitZi = PhitZ.slice(i);
+for(int j = i + 1; j < Nog; j++){
+A(i,j) = sum_square(PhitZi- PhitZ.slice(j));
+}
+}
+
+L =  4  / pow(ng, 2) * (max(max(A)) + alphamax*ng / 2); //upper bound on Lipschitz constant
+//L =  4 * alphamax / pow(ng, 2) * (max(max(Sumsqdiff)) + ng / 2); //upper bound on Lipschitz constant
+delta = nu * 1.9 / L; //stepsize scaled up by  nu
+deltamax = 1.99 / L; //maximum theoretically allowed stepsize
+if(Lmin == 0){Lmin = (1 / nu) * L;}
 
 ////initialize
 Betaprev.fill(0);
@@ -122,7 +138,6 @@ arma::mat Ze = zeros<mat>(n1, n2 * n3);
 arma::mat absgradzeroall(p1, p2 * p2);
 
 absgradzeroall = abs(gradloss(PhitZ, PhitPhiBeta, -eev(PhiBeta, Z, ng), ng, zeta, ll));
-
 
 arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
 arma::mat penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
@@ -159,7 +174,7 @@ if(penalty != "lasso"){wGamma = Gamma / lambda(j);}else{wGamma = Gamma;}
 
 if(penalty == "scad"){
 
-absBeta =abs(Beta);
+absBeta = abs(Beta);
 pospart = ((ascad * Gamma - absBeta) + (ascad * Gamma - absBeta)) / 2;
 dpen = sign(Beta) % Gamma % ((absBeta <= Gamma) + pospart / (ascad - 1) % (absBeta > Gamma));
 wGamma = abs(dpen) % Gamma / lambda(j) % (Beta != 0) + lambda(j) * (Beta == 0);
@@ -176,54 +191,55 @@ for (int k = 0; k < maxiter; k++){
 if(k == 0){
 
 Betaprev = Beta;
+Xprev = Betaprev;
 obj(k) = lossBeta + l1penalty(wGamma, Beta);
 Obj(k, j) = obj(k);
-
-// W.slice(j).col(k) = wBeta;
-
-BT(j, k) = 1; //force initial backtracking (if deltamin < delta)
+Delta(k, j) = delta;
 
 }else{//if not the first iteration
 
-X = Beta + (k - 2) / (k + 1) * (Beta - Betaprev);
+//if(acc == 1){
+//X = Beta + (k - 2) / (k + 1) * (Beta - Betaprev);//  nesterov update.....
+//}else{
+X = Beta;
+Xprev = Betaprev;
+
+//}
 
 PhiX = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, X, p2, p3), p3, n1), n1, n2);
 eevX = -eev(PhiX, Z, ng);
-//wX = exp(-zeta * -eev(PhiX, Z, ng));
-
 PhitPhiX = RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, X, p2, p3), p3, p1), p1, p2);
 GradlossX = gradloss(PhitZ, PhitPhiX, eevX, ng, zeta, ll);
-
-//if(ll == 1){GradlossX = GradlossX / accu(wX);}
-
-////check if proximal backtracking occurred last iteration
-if(BT(j, k - 1) > 0){bt = 1;}else{bt = 0;}
-
 lossX = softmaxloss(eevX, zeta, ll);
-//lossX = accu(wX);
 
+if(k > 1){
+S = X - Xprev;
+R = GradlossX - GradlossXprev;
+double tmp = as_scalar(accu(S % R )/ sum_square(S)); //is this corrert???
+tmp = std::max(tmp, Lmin);
+delta = 1 / std::min(tmp, pow(10,8));
+}else{
+delta = 1;
+}
 ////proximal backtracking from chen2016
 BT(j, k) = 0;
-
-while (BT(j, k) < btmax){
+while(BT(j, k) < btmax){
 
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PhiProp = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Prop, p2, p3), p3, n1), n1, n2);
 lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta, ll);
 
-val = as_scalar(max(obj(span(0, k - 1))) - c / (2 * delta) * sum_square(Prop - Betaprev));
+val = as_scalar(max(obj(span(std::max(0, k - mem), k - 1))) - c / 2 * sum_square(Prop - Betaprev));
 penProp = l1penalty(wGamma, Prop);
 
-if (lossProp + penProp <= val + 0.0000001){ //need to add a little due to numerical issues??
+if (lossProp + penProp <= val + 0.0000001){
 
 break;
 
 }else{
 
-delta = eta * delta;
+delta = delta / tau; //tau>1, scaling delta down instead of L up...
 BT(j, k) = BT(j, k) + 1;
-
-//if(delta < deltamin){delta = deltamin;}
 
 }
 
@@ -233,20 +249,20 @@ BT(j, k) = BT(j, k) + 1;
 if(BT(j, k) == btmax){Stopbt = 1;}
 
 Betaprev = Beta;
+GradlossXprev = GradlossX;
 Beta = Prop;
-// W.slice(j).col(k) = wBeta;
 lossBeta = lossProp;
 penBeta = penProp;
 obj(k) = lossBeta + penBeta;
-Loss(k) = lossBeta;
 Pen(k) = penBeta;
 Obj(k, j) = obj(k);
 Iter(j) = k;
+Delta(k, j) = delta;
 
 ////proximal convergence check
 relobj = abs(obj(k) - obj(k - 1)) / (reltol + abs(obj(k - 1)));
 
-if(k < maxiter && relobj < reltol){
+if(k < maxiter - 1 && relobj < reltol){
 
 df(j) = p - accu((Beta == 0));
 Betas.col(j) = vectorise(Beta);
@@ -254,7 +270,7 @@ obj.fill(NA_REAL);
 Stopconv = 1;
 break;
 
-}else if(k == maxiter){
+}else if(k == maxiter - 1){
 
 df(j) = p - accu((Beta == 0));
 Betas.col(j) = vectorise(Beta);
@@ -267,7 +283,7 @@ break;
 }
 
 ////break proximal loop if maximum number of proximal backtraking step is reached
-if(Stopbt == 1){
+if(Stopbt == 1 || Stopmaxiter == 1){
 
 Betas.col(j) = vectorise(Beta);
 break;
@@ -276,7 +292,7 @@ break;
 
 }//end proximal loop
 
-}else{ //MFISTA algortihm plus a backtracking  from parihkandboyd///////////////////////////////////////////////////
+}else{////FISTA
 
 for (int k = 0; k < maxiter; k++){
 
@@ -286,54 +302,56 @@ Betaprev = Beta;
 X = Beta;
 obj(k) = lossBeta + l1penalty(wGamma, Beta);
 Obj(k, j) = obj(k);
-// W.slice(j).col(k) = wBeta;
 BT(j, k) = 1; //force initial backtracking
-tk = 1;
+Delta(k, j) = delta;
 
-}else{//if not the first iteration
+}else{
+
+X = Beta + (k - 2) / (k + 1) * (Beta - Betaprev);
 
 PhiX = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, X, p2, p3), p3, n1), n1, n2);
-//wX = exp(-zeta * -eev(PhiX, Z, ng));
 eevX = -eev(PhiX, Z, ng);
 PhitPhiX = RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, X, p2, p3), p3, p1), p1, p2);
 GradlossX = gradloss(PhitZ, PhitPhiX, eevX, ng, zeta, ll);
 
-////check if backtracking occurred last iteration
+////check if proximal backtracking occurred last iteration
 if(BT(j, k - 1) > 0){bt = 1;}else{bt = 0;}
 
-if(bt == 1 || nu == 0){// if backtrack
+////check for divergence
+if(ascent > ascentmax){bt  = 1;}
 
-  lossX = softmaxloss(eevX, zeta, ll);
-//lossX = accu(wX);
-penX = l1penalty(wGamma, X);
+if((bt == 1 && deltamax < delta) || nu > 1){//backtrack
+
+lossX = softmaxloss(eevX, zeta, ll);
 BT(j, k) = 0;
 
-while (BT(j, k) < btmax){//line search
+while(BT(j, k) < btmax){//start backtracking
 
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PhiProp = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Prop, p2, p3), p3, n1), n1, n2);
 lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta, ll);
 
-Qdelta = as_scalar(lossX + accu(GradlossX % (Prop - X)) + 1 / (2 * delta) * sum_square(Prop - X) + 0 * penX);
-penProp = l1penalty(wGamma, Prop);
+val = as_scalar(lossX + accu(GradlossX % (Prop - X))
+                      + 1 / (2 * delta) * sum_square(Prop - X));
 
-if(lossProp + 0 * penProp <= Qdelta + 0.0000001){ //need to add a little ??
+if(lossProp <= val + 0.0000001){ //need to add a little due to numerical issues
 
 break;
 
 }else{
 
-delta = eta * delta;
+delta = scale * delta;
 BT(j, k) = BT(j, k) + 1;
 
+//if(delta < deltamax){delta = deltamax;}
+
 }
 
-}//end line search
-
-////check if maximum number of proximal backtraking step is reached
+}//end backtracking
+ ////check if maximum number of proximal backtraking step is reached
 if(BT(j, k) == btmax){Stopbt = 1;}
 
-}else{ //if no backtracking
+}else{//no backtracking
 
 Prop = prox_l1(X - delta * GradlossX, delta * wGamma);
 PhiProp = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Prop, p2, p3), p3, n1), n1, n2);
@@ -341,77 +359,56 @@ lossProp = softmaxloss(-eev(PhiProp, Z, ng), zeta, ll);
 
 }
 
-tkp1 = (1 + sqrt(1 + 4 * pow(tk, 2))) / 2;
 
-if(lossProp + penProp <= obj(k - 1)){
 
-Betaprev = Beta;
-lossBetaprev = lossBeta;
-Beta = Prop;
-lossBeta = lossProp;
-penBeta = penProp;
-obj(k) = lossBeta + penBeta;
-// W.slice(j).col(k) = wBeta;
-Loss(k) = lossBeta;
-Pen(k) = penBeta;
+    Betaprev = Beta;
+    Beta = Prop;
+    lossBeta = lossProp;
+    obj(k) = lossBeta + l1penalty(wGamma, Beta);
+    Iter(j) = k;
+    Delta(k, j) = delta;
+    Obj(k, j) = obj(k);
 
-}else{
 
-Betaprev = Beta;
-lossBetaprev = lossBeta;
-obj(k) = lossBeta + penBeta;
-// W.slice(j).col(k) = wBeta;
-Loss(k) = lossBeta;
-Pen(k) = penBeta;
+    ////proximal divergence check
+    if(obj(k) > obj(k - 1)){ascent = ascent + 1;}else{ascent = 0;}
 
-}
+  relobj = abs(obj(k) - obj(k - 1)) / (reltol + abs(obj(k - 1)));
 
-X = Beta + tk / tkp1 * (Prop - Beta) + (tk - 1) / tkp1 * (Beta - Betaprev); //yk+1
+  if(k < maxiter - 1 && relobj < reltol){
 
-Obj(k, j) = obj(k);
-Iter(j) = k;
+    df(j) = p - accu((Beta == 0));
+    Betas.col(j) = vectorise(Beta);
+    obj.fill(NA_REAL);
+    Stopconv = 1;
+    break;
 
-////proximal convergence check
-relobj = abs(obj(k) - obj(k - 1)) / (reltol + abs(obj(k - 1)));
- // diffbet = accu(abs(Beta - Betaprev));
+  }else if(k == maxiter - 1){
 
-if(k < maxiter && relobj < reltol //&& diffbet != 0 //|| k == 0
-){
+    df(j) = p - accu((Beta == 0));
+    Betas.col(j) = vectorise(Beta);
+    obj.fill(NA_REAL);
+    Stopmaxiter = 1;
+    break;
 
-df(j) = p - accu((Beta == 0));
-Betas.col(j) = vectorise(Beta);
-obj.fill(NA_REAL);
-Stopconv = 1;
-break;
-
-}else if(k == maxiter){
-
-df(j) = p - accu((Beta == 0));
-Betas.col(j) = vectorise(Beta);
-obj.fill(NA_REAL);
-Stopmaxiter = 1;
-break;
-
-}
+  }
 
 }
 
 ////break proximal loop if maximum number of proximal backtraking step is reached
 if(Stopbt == 1){
 
-Betas.col(j) = vectorise(Beta);
-break;
+  Betas.col(j) = vectorise(Beta);
+  break;
 
 }
 
 }//end proximal loop
 
-df(j) = p - accu((Beta == 0));
-
 }
 
-//Stop program if maximum number of backtracking steps or maxiter is reached
-if(Stopbt == 1){
+//Stop msa loop if maximum number of backtracking steps or maxiter is reached
+if(Stopbt == 1 || Stopmaxiter == 1){
 
 endmodelno = j;
 break;
@@ -419,6 +416,14 @@ break;
 }
 
 }//end MSA loop
+
+//Stop lambda loop if maximum number of backtracking steps or maxiter is reached
+if(Stopbt == 1 || Stopmaxiter == 1){
+
+  endmodelno = j;
+  break;
+
+}
 
 }//end lambda loop
 
@@ -437,6 +442,9 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
                             Rcpp::Named("endmodelno") = endmodelno,
                             Rcpp::Named("lambda") = lambda,
                             Rcpp::Named("BT") = BT,
+                            Rcpp::Named("L") = L,
+                            Rcpp::Named("Delta") = Delta,
+                            Rcpp::Named("Sumsqdiff") = Sumsqdiff,
                             Rcpp::Named("Stops") = Stops);
 
 return output;

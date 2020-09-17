@@ -18,10 +18,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//#define TIMING
-//#include <RcppArmadillo.h>
-//#include "/Users/adamlund/Documents/KU/Phd/Project/Computer/Vincent/timer/simple_timer.h"
-
 #include <math.h>
 using namespace std;
 //using namespace arma;
@@ -29,8 +25,6 @@ using namespace std;
 ////////////////////////////////// Auxiliary functions
 //////////////////// Direct RH-transform of a flat 3d array (matrix) M by a matrix X
 arma::mat RHmat(arma::mat const& X, arma::mat const& M,int col, int sli){
-
-//    TIMER_START
 
 int rowx = X.n_rows;
 
@@ -71,18 +65,13 @@ return eevar;
 
 //////////////////// softmax loss
 double softmaxloss(arma::vec h, double c, int ll){
-  // max(y,x)=k
-  //   log(e^(c(y- k))+e^(c(x- k)))/c + k=(log((e^(cy)+e^(cx))e^(- ck)) + ck)/c=log((e^(cy)+e^(cx)))/c
+
 if(ll == 1){
 
 double k =  max(h);
-
-//return (log(accu(exp(-c * (h - k)))) - c * k) / c;
 return log(accu(exp(c * (h - k)))) / c +  k;
 
 }else{
-
-//return accu(exp(- c * h));
 return accu(exp(c * h));
 
 }
@@ -94,22 +83,15 @@ arma::mat gradloss(arma::cube const& PhitZ, arma::mat const& XtXb, arma::vec con
 arma::mat gradout(XtXb.n_rows, XtXb.n_cols);
 gradout.fill(0);
 
-if(ll == 1){// log(exp(zeta*-V)) /////////
-
+if(ll == 1){
 double  k = max(h);
-//double  m = min(h);
-//arma::vec k(eev.n_elem);
-//if(abs(m) > abs(M)){k.fill(m);}else{k.fill(M);}///TOTOTOTOTOTODODODODODOD??????????
-
 double tmp =  accu(exp(c * (h - k)));
-//=sum_g{exp(c*h_g)}*exp(c*max{abs{V}})=exp(h_g)*exp(c*max{abs{V}})
-for(int j = 0; j < PhitZ.n_slices; j++){
+ for(int j = 0; j < PhitZ.n_slices; j++){
 gradout = exp(c * (h(j) - k)) * (XtXb - PhitZ.slice(j)) + gradout;
 }
-//=sum_g{exp(c*h_g)*exp(c*max{abs{V}})*nabla h_g}=sum_g{exp(c*h_g)*nabla h_g}*exp(c*max{abs{V}})
-return 2 * gradout / (tmp * ng);
+ return 2 * gradout / (tmp * ng);
 
-}else{// exp(-zeta*V) ///////////
+}else{
 
 for(int j = 0; j < PhitZ.n_slices; j++){gradout = exp(c * h(j)) * (XtXb - PhitZ.slice(j)) + gradout;}
 
@@ -124,8 +106,6 @@ double sum_square(arma::mat const& x){return accu(x % x);}
 
 //////////////////// Proximal operator for the l1-penalty (soft threshold)
 arma::mat prox_l1(arma::mat const& zv, arma::mat const& gam){
-
-//TIMER_START
 
 return (zv >= gam) % (zv - gam) + (zv <= -gam) % (zv + gam);
 
